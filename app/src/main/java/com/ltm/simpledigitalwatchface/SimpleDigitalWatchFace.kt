@@ -1,7 +1,6 @@
 package com.ltm.simpledigitalwatchface
 
 import android.content.*
-import android.content.pm.PackageManager
 import android.graphics.*
 import android.os.*
 import android.support.wearable.complications.ComplicationData
@@ -9,11 +8,14 @@ import android.support.wearable.watchface.CanvasWatchFaceService
 import android.support.wearable.watchface.WatchFaceService
 import android.support.wearable.watchface.WatchFaceStyle
 import android.util.Log
+// import android.view.LayoutInflater
 import android.view.SurfaceHolder
-import android.widget.Toast
+// import android.widget.TextView
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.*
+// import androidx.activity.ComponentActivity
+// import android.widget.TextView
 
 /**
  * Updates rate in milliseconds for interactive mode. We update once a second to advance the
@@ -49,24 +51,31 @@ class SimpleDigitalWatchFace: CanvasWatchFaceService() {
         private var mBatteryLevel = 100
 
         private var mRegisteredTimeZoneReceiver = false
-        private var mMuteMode: Boolean = false
+        // private var mMuteMode: Boolean = false
         private var mCenterX: Float = 0F
         private var mCenterY: Float = 0F
 
         private var timeOffsetX: Float = 0f
         private var timeOffsetY: Float = 0f
-        private var dateOffsetX: Float = 0f
-        private var dateOffsetY: Float = 0f
+        // private var dateOffsetX: Float = 0f
+        // private var dateOffsetY: Float = 0f
 
         private lateinit var mTimePaint: Paint
         private lateinit var mDatePaint: Paint
+        private lateinit var mTextPaint: Paint
 
         private var mAmbient: Boolean = false
         private var mLowBitAmbient: Boolean = false
         private var mBurnInProtection: Boolean = false
 
-        private val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-        private val dateFormatter = SimpleDateFormat("E, d MMMM YY", Locale.getDefault())
+        private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        private val timeFormatterAmbient  = SimpleDateFormat("HH:mm", Locale.getDefault())
+        private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        private val dayOfWeekFormatter = SimpleDateFormat("EEE", Locale.getDefault())
+
+        private var formattedTime: String = "..."
+        private var formattedDate: String = "..."
+        private var formattedDayOfWeek: String = "..."
 
         /* Handler to update the time once a second in interactive mode. */
         private val mUpdateTimeHandler = EngineHandler(this)
@@ -80,7 +89,7 @@ class SimpleDigitalWatchFace: CanvasWatchFaceService() {
 
         private val mBatteryReceiver = object  : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                mBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 100);
+                mBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 100)
                 Log.d("COMPLICATION", mBatteryLevel.toString())
                 invalidate()
             }
@@ -123,8 +132,8 @@ class SimpleDigitalWatchFace: CanvasWatchFaceService() {
         private fun initializeWatchFace() {
 
             mTimePaint = Paint().apply {
-                color = Color.CYAN
-                textSize = 108f
+                color = Color.WHITE
+                textSize = 85f
                 textAlign = Paint.Align.CENTER
                 style = Paint.Style.FILL
                 typeface = Typeface.DEFAULT_BOLD
@@ -133,10 +142,19 @@ class SimpleDigitalWatchFace: CanvasWatchFaceService() {
 
             mDatePaint = Paint().apply {
                 color = Color.WHITE
-                textSize = 24f
+                textSize = 40f
                 textAlign = Paint.Align.CENTER
                 style = Paint.Style.FILL
                 flags = Paint.ANTI_ALIAS_FLAG
+            }
+
+            mTextPaint = Paint().apply {
+                color = Color.WHITE
+                textSize = 40f
+                textAlign = Paint.Align.CENTER
+                style = Paint.Style.FILL
+                flags = Paint.ANTI_ALIAS_FLAG
+
             }
         }
 
@@ -172,6 +190,7 @@ class SimpleDigitalWatchFace: CanvasWatchFaceService() {
 
         override fun onDraw(canvas: Canvas, bounds: Rect?) {
             super.onDraw(canvas, bounds)
+
             val now = System.currentTimeMillis()
             mCalendar.timeInMillis = now
 
@@ -183,25 +202,33 @@ class SimpleDigitalWatchFace: CanvasWatchFaceService() {
             canvas.drawColor(Color.BLACK)
 
             //format values
-            val formattedTime = timeFormatter.format(mCalendar.time)
-            val formattedDate = dateFormatter.format(mCalendar.time)
+            // val formattedTime = timeFormatter.format(mCalendar.time)
+            // val formattedDate = dateFormatter.format(mCalendar.time)
+            formattedTime = if (mAmbient) timeFormatterAmbient.format(mCalendar.time) else timeFormatter.format(mCalendar.time)
+            formattedDate = dateFormatter.format(mCalendar.time)
+            formattedDayOfWeek = dayOfWeekFormatter.format(mCalendar.time)
+
+            // val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            // val currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
             //get bounds
             val timeBounds = Rect().apply {
                 mTimePaint.getTextBounds(formattedTime, 0, formattedTime.length, this)
             }
 
-            val dateBounds = Rect().apply {
-                mDatePaint.getTextBounds(formattedDate, 0, formattedDate.length, this)
-            }
+//            val dateBounds = Rect().apply {
+//                mDatePaint.getTextBounds(currentDate, 0, currentDate.length, this)
+//            }
 
             //get offset for
             timeOffsetX = mCenterX
             timeOffsetY = mCenterY + (timeBounds.height().toFloat() / 2)
 
-            canvas.drawText(formattedTime, timeOffsetX, timeOffsetY, mTimePaint)
+            canvas.drawText(mBatteryLevel.toString().plus("%"), timeOffsetX, timeOffsetY/4, mDatePaint)
 
-            canvas.drawText(mBatteryLevel.toString().plus("%"), mCenterY, timeOffsetY + dateBounds.height(), mDatePaint)
+            canvas.drawText(formattedDate, timeOffsetX, timeOffsetY/2, mDatePaint)
+            canvas.drawText(formattedTime, timeOffsetX, timeOffsetY, mTimePaint)
+            canvas.drawText(formattedDayOfWeek , timeOffsetX, timeOffsetY * 27/20, mTextPaint)
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
